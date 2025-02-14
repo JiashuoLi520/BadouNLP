@@ -1,0 +1,68 @@
+# 词典，每个词后方存储的是其词频
+Dict = {
+    "经常": 0.1,
+    "经": 0.05,
+    "有": 0.1,
+    "常": 0.001,
+    "有意见": 0.1,
+    "歧": 0.001,
+    "意见": 0.2,
+    "分歧": 0.2,
+    "见": 0.05,
+    "意": 0.05,
+    "见分歧": 0.05,
+    "分": 0.1
+}
+
+
+# 根据词典，构造DAG图，返回每个字可以构成的所有词的起始和终止位置
+def calc_dag(sentence):
+    # 初始化DAG字典
+    dag = {}
+    n = len(sentence)
+
+    # 对句子中的每个位置进行处理
+    for i in range(n):
+        dag[i] = []  # 初始化当前字符的切分位置列表
+        # 检查从当前字符开始的所有可能的词
+        for j in range(i + 1, n + 1):
+            word = sentence[i:j]
+            if word in Dict:
+                dag[i].append(j)
+    return dag
+
+
+# 解码DAG，生成所有可能的分词方式
+class DAGDecode:
+    def __init__(self, sentence, dag):
+        self.sentence = sentence
+        self.dag = dag
+        self.finish_path = []  # 存储所有的分词路径
+
+    # 递归解码，输出所有路径
+    def decode(self, index=0, path=[]):
+        if index == len(self.sentence):  # 如果到了句子的末尾，保存当前路径
+            self.finish_path.append(" ".join(path))
+            return
+
+        # 从当前索引位置出发，尝试所有可能的切分
+        for end in self.dag.get(index, []):
+            word = self.sentence[index:end]
+            path.append(word)
+            self.decode(end, path)  # 继续解码下一个位置
+            path.pop()  # 回溯，去掉当前词
+
+    # 开始解码
+    def start_decoding(self):
+        self.decode()
+
+
+# 示例：使用DAG解码中文分词
+sentence = "经常有意见分歧"
+dag = calc_dag(sentence)
+dd = DAGDecode(sentence, dag)
+dd.start_decoding()
+
+# 输出所有的分词路径
+for path in dd.finish_path:
+    print(path)
