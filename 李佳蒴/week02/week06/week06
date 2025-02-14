@@ -1,0 +1,108 @@
+class EmbeddingLayer:
+    def __init__(self, vocab_len: int, sent_len: int, max_len: int, embedding_size: int):
+        self.token_embedding = vocab_len * embedding_size
+        self.segment_embedding = sent_len * embedding_size
+        self.position_embedding = max_len * embedding_size
+        self.layer_norm = 2 * embedding_size  # gamma + beta parameters
+        self.total = self.token_embedding + self.segment_embedding + self.position_embedding + self.layer_norm
+
+    def get_parameters(self) -> int:
+        return self.total
+
+
+class SelfAttentionLayer:
+    def __init__(self, embedding_size: int):
+        params_per_projection = embedding_size * embedding_size + embedding_size  # weight + bias
+        self.total = 3 * params_per_projection  # Q, K, V projections
+
+    def get_parameters(self) -> int:
+        return self.total
+
+
+class SelfAttentionOutputLayer:
+    def __init__(self, embedding_size: int):
+        self.linear = embedding_size * embedding_size + embedding_size  # weight + bias
+        self.layer_norm = 2 * embedding_size  # gamma + beta
+        self.total = self.linear + self.layer_norm
+
+    def get_parameters(self) -> int:
+        return self.total
+
+
+class FeedForwardLayer:
+    def __init__(self, embedding_size: int, hide_size: int):
+        # First linear layer: embedding_size -> hide_size
+        self.linear1 = embedding_size * hide_size + hide_size
+        # Second linear layer: hide_size -> embedding_size
+        self.linear2 = hide_size * embedding_size + embedding_size
+        self.layer_norm = 2 * embedding_size  # gamma + beta
+        self.total = self.linear1 + self.linear2 + self.layer_norm
+
+    def get_parameters(self) -> int:
+        return self.total
+
+
+class EncoderLayer:
+    def __init__(self, embedding_size: int, hide_size: int):
+        self.self_attention = SelfAttentionLayer(embedding_size)
+        self.attention_output = SelfAttentionOutputLayer(embedding_size)
+        self.feed_forward = FeedForwardLayer(embedding_size, hide_size)
+        self.total = (
+                self.self_attention.get_parameters()
+                + self.attention_output.get_parameters()
+                + self.feed_forward.get_parameters()
+        )
+
+    def get_parameters(self) -> int:
+        return self.total
+
+
+class PoolerLayer:
+    def __init__(self, embedding_size: int):
+        self.fc = embedding_size * embedding_size + embedding_size  # weight + bias
+        self.total = self.fc
+
+    def get_parameters(self) -> int:
+        return self.total
+
+
+class BertParameterCalculator:
+    def __init__(
+            self,
+            vocab_len: int,
+            sent_len: int,
+            max_len: int,
+            embedding_size: int,
+            hide_size: int,
+            num_layers: int
+    ):
+        self.embedding = EmbeddingLayer(vocab_len, sent_len, max_len, embedding_size)
+        self.encoder_layers = [EncoderLayer(embedding_size, hide_size) for _ in range(num_layers)]
+        self.pooler = PoolerLayer(embedding_size)
+        self.total_parameters = (
+                self.embedding.get_parameters()
+                + sum(layer.get_parameters() for layer in self.encoder_layers)
+                + self.pooler.get_parameters()
+        )
+
+    def get_total_parameters(self) -> int:
+        return self.total_parameters
+
+
+if __name__ == "__main__":
+
+    # 参数配置
+    config = {
+        "vocab_len": 21128,
+        "sent_len": 2,
+        "max_len": 512,
+        "embedding_size": 768,
+        "hide_size": 3072,
+        "num_layers": 12
+    }
+
+    # 计算参数
+    calculator = BertParameterCalculator(**config)
+    calculated_params = calculator.get_total_parameters()
+
+    print(f"总参数个数：{calculated_params}")
